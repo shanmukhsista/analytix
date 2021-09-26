@@ -1,0 +1,54 @@
+package controller
+
+import (
+	"analytix/generated"
+	"context"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/segmentio/ksuid"
+	"google.golang.org/protobuf/proto"
+	"net/http"
+)
+
+type AcquisitionServiceKafkaController struct {
+	kStream * kinesis.Client
+	streamName string
+}
+
+func (a AcquisitionServiceKafkaController) AcquireEvents(eventPayload *generated.AcquisitionEvent) (*generated.AcquisitionEventResponse, error) {
+	// Publish message to kafka. Serialize to protobuf..
+	// Assign a batch id.
+	id := ksuid.New().String()
+	eventPayload.BatchId = id
+	a.kStream.GetRecords(context.Background(),&kinesis.GetRecordsInput{
+		ShardIterator: nil,
+		Limit:         nil,
+	})
+	serializedValue , err:= proto.Marshal(eventPayload)
+	if ( err != nil){
+		return nil,err
+	}
+	_ , err = a.kStream.PutRecord(context.Background(),&kinesis.PutRecordInput{
+		Data:                      serializedValue,
+		PartitionKey:              &eventPayload.BatchId,
+		StreamName:                &a.streamName,
+	})
+	if ( err != nil){
+		return nil,err
+	}
+	response := generated.AcquisitionEventResponse{
+		Status:         http.StatusOK,
+		ProcessingTime: 0,
+		BatchId:        "",
+	}
+	return &response, nil
+}
+
+func NewAcquisitionServiceControllerKafka(kinesisClient *kinesis.Client) (EventAcquisitionAPI , error){
+
+	ac := AcquisitionServiceKafkaController{
+		kStream:             kinesisClient,
+		streamName:  "acquisition_event_stream",
+	}
+	return ac,nil
+}
+
