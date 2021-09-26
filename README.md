@@ -1,3 +1,8 @@
+# Disclaimer 
+
+This project is just me trying to learn Golang, and explore real time pipelines with some big data technologies. 
+This is not production ready. 
+
 
 # Introduction 
 
